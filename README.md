@@ -51,6 +51,8 @@ Optional repository variables: `COMPOSER_ENV`, `COMPOSER_REGION` (defaults are s
 1. Add or edit DAGs in `airflow_dags/` or Spark job files in `spark_job/`.
 2. Push changes in either folder to `main`.
 3. The **Deploy DAGs** workflow syncs DAGs to Composer and Spark job files to `gs://gcs_bucket_for_snf/car_rental_spark_job/`. Both syncs remove remote files that are not present in their corresponding repository folder.
-4. DAGs appear in the Airflow UI within a couple of minutes. Spark job files are available in GCS for Dataproc.
+4. DAGs appear in the Airflow UI within a couple of minutes. Spark job files are available in GCS for Dataproc Serverless.
+
+The DAG submits Spark work as a Dataproc Serverless batch in `us-central1` (runtime `2.2`), rather than using a persistent Dataproc cluster. Ensure the batch's runtime service account can read the script, connector JARs, and input data from GCS and can reach Snowflake. The Snowflake Spark connector JAR must be compatible with the Serverless runtime's Spark version.
 
 To deploy manually: GitHub > Actions > Deploy DAGs > Run workflow.

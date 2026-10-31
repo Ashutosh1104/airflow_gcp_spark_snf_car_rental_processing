@@ -1,6 +1,6 @@
 from datetime import datetime, timedelta
 from airflow import DAG
-from airflow.providers.google.cloud.operators.dataproc import DataprocSubmitJobOperator 
+from airflow.providers.google.cloud.operators.dataproc import DataprocCreateBatchOperator
 from airflow.providers.common.sql.operators.sql import SQLExecuteQueryOperator
 from airflow.operators.python import PythonOperator
 from airflow.models.param import Param
@@ -89,16 +89,13 @@ insert_customer_dim = SQLExecuteQueryOperator(
     dag=dag,
 )
 
-CLUSTER_NAME = 'spark-job-snf-pipe'
 PROJECT_ID = 'project-8aea27fb-09aa-4017-9b0'
-REGION = 'us-central1-a'
+REGION = 'us-central1'
 
 pyspark_job_file_path = 'gs://gcs_bucket_for_snf/car_rental_spark_job/spark_job.py'
 
-PYSPARK_JOB = {
-    "reference": {"project_id": PROJECT_ID},
-    "placement": {"cluster_name": CLUSTER_NAME},
-    "pyspark_job": {
+SPARK_BATCH = {
+    "pyspark_batch": {
         "main_python_file_uri": pyspark_job_file_path,
         "args": [
             "--date={{ ti.xcom_pull(task_ids='get_execution_date') }}",
@@ -109,15 +106,19 @@ PYSPARK_JOB = {
             "gs://gcs_bucket_for_snf/snowflake_jars/spark-snowflake_2.12-2.15.0-spark_3.4.jar",
             "gs://gcs_bucket_for_snf/snowflake_jars/snowflake-jdbc-3.16.0.jar"
         ]
-    }
+    },
+    "runtime_config": {
+        "version": "2.2",
+    },
 }
 
-# Task: Submit PySpark job to Dataproc (passes date argument from XCom)
-submit_pyspark_job = DataprocSubmitJobOperator(
+# Task: Submit a Serverless Dataproc batch (passes date argument from XCom)
+submit_pyspark_job = DataprocCreateBatchOperator(
     task_id='submit_pyspark_job',
-    job=PYSPARK_JOB,
+    batch=SPARK_BATCH,
     region=REGION,
     project_id=PROJECT_ID,
+    batch_id='car-rental-{{ ts_nodash | lower }}-{{ ti.try_number }}',
     dag=dag,
 )
 
