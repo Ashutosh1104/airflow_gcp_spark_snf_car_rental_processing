@@ -2,7 +2,9 @@ name: Deploy DAGs
 on:
   push:
     branches: [main]
-    paths: ["airflow_dags/**"]   # CHANGE HERE: DAG folder in your repo
+    paths:
+      - "airflow_dags/**"
+      - "spark_job/**"
   workflow_dispatch:
 
 permissions:
@@ -13,6 +15,8 @@ env:
   COMPOSER_ENV: ${{ vars.COMPOSER_ENV || 'airflow-de22' }} # CHANGE HERE:new env
   COMPOSER_REGION: ${{ vars.COMPOSER_REGION || 'us-central1' }} # CHANGE HERE: new env
   DAGS_DIR: airflow_dags   # CHANGE HERE for changing DAGs folder
+  SPARK_JOB_DIR: spark_job
+  SPARK_JOB_GCS_URI: gs://gcs_bucket_for_snf/car_rental_spark_job
 
 jobs:
   deploy:
@@ -36,3 +40,6 @@ jobs:
 
       - name: Sync DAGs
         run: gsutil -m rsync -r -d "$DAGS_DIR/" ${{ steps.composer.outputs.prefix }}/
+
+      - name: Sync Spark job files
+        run: gsutil -m rsync -r -d "$SPARK_JOB_DIR/" "$SPARK_JOB_GCS_URI/"

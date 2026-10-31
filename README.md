@@ -36,20 +36,21 @@ Add these repository secrets (Settings > Secrets and variables > Actions):
 | `WIF_PROVIDER` | `projects/<PROJECT_NUMBER>/locations/global/workloadIdentityPools/github-pool/providers/github-provider` |
 | `GCP_SA_EMAIL` | `github-deployer@<PROJECT_ID>.iam.gserviceaccount.com` |
 
-Optional repository variables: `COMPOSER_ENV`, `COMPOSER_REGION` (defaults are set in the workflow).
+Optional repository variables: `COMPOSER_ENV`, `COMPOSER_REGION` (defaults are set in the workflow). The deployer service account also needs **Storage Object Admin** access to the bucket containing `gs://gcs_bucket_for_snf/car_rental_spark_job/`.
 
 ### 3. Composer environment
 
 - In the Composer environment's PyPI packages configuration, install `apache-airflow-providers-snowflake`.
 - In the Airflow UI for Composer, open Admin > Variables and add a variable with key `NEWS_API_KEY` and value set to your NewsAPI API key. The fetch task reads the key from this Airflow Variable; it is separate from the Snowflake connection.
 - In the Airflow UI for Composer, open Admin > Connections and create the Snowflake connection with ID `snowflake_conn`, which is the ID used by the DAG. Do not commit credentials to the repo.
+- The DAG renders this connection's login and password into the Dataproc Spark job arguments. They may be visible in Airflow task data or Dataproc job metadata/logs; move them to Secret Manager before treating the deployment as production-safe.
 - To store Airflow connection credentials in Google Secret Manager, configure Secret Manager as the Airflow secrets backend and enable billing for the Google Cloud project. A free-tier account without billing enabled cannot use this setup; use Composer's Airflow Connections UI if you are not configuring Secret Manager.
 
 ## Usage
 
-1. Add or edit DAGs in `airflow_dags22/`.
-2. Push to `main`.
-3. The **Deploy DAGs** workflow syncs the folder to Composer and removes files in the remote DAG folder that are not in the repository folder.
-4. DAGs appear in the Airflow UI within a couple of minutes.
+1. Add or edit DAGs in `airflow_dags/` or Spark job files in `spark_job/`.
+2. Push changes in either folder to `main`.
+3. The **Deploy DAGs** workflow syncs DAGs to Composer and Spark job files to `gs://gcs_bucket_for_snf/car_rental_spark_job/`. Both syncs remove remote files that are not present in their corresponding repository folder.
+4. DAGs appear in the Airflow UI within a couple of minutes. Spark job files are available in GCS for Dataproc.
 
 To deploy manually: GitHub > Actions > Deploy DAGs > Run workflow.
