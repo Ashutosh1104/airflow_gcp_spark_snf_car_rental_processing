@@ -89,9 +89,9 @@ insert_customer_dim = SQLExecuteQueryOperator(
     dag=dag,
 )
 
-CLUSTER_NAME = 'hadoop-dev-new'
-PROJECT_ID = 'dev-sunset-468907-e9'
-REGION = 'us-central1'
+CLUSTER_NAME = 'spark-job-snf-pipe'
+PROJECT_ID = 'project-8aea27fb-09aa-4017-9b0'
+REGION = 'us-central1-a'
 
 pyspark_job_file_path = 'gs://gcs_bucket_for_snf/car_rental_spark_job/spark_job.py'
 
