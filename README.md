@@ -1,4 +1,35 @@
-# airflow_gcp_spark_snf_car_rental_processing
+# Car Rental Data Pipeline
+
+An Apache Airflow pipeline on Google Cloud Composer orchestrates customer data loading and car-rental fact processing. Customer CSV data is staged from Google Cloud Storage into Snowflake, customer dimension records are maintained as a slowly changing dimension (SCD Type 2), and a PySpark job processes rental JSON data and loads the resulting facts into Snowflake. The PySpark job runs as a Dataproc Serverless batch.
+
+## Pipeline overview
+
+1. The Airflow DAG resolves the processing date from its `execution_date` parameter, falling back to the Airflow logical date.
+2. The DAG merges customer records from the date-specific CSV in the Snowflake external stage, closing out changed current dimension records.
+3. The DAG inserts the current customer dimension rows.
+4. The DAG submits the PySpark job to Dataproc Serverless. The job reads the date-specific rental JSON from GCS, validates and transforms the records, joins them with Snowflake dimensions, and appends the results to `rentals_fact`.
+
+The DAG is in [`airflow_dags/`](airflow_dags/), the Spark application is in [`spark_job/`](spark_job/), and the GitHub Actions deployment workflow is in [`.github/workflows/deploy-dags.yml`](.github/workflows/deploy-dags.yml).
+
+## Screenshots
+
+### Airflow pipeline
+
+The Airflow graph shows the customer dimension tasks followed by the Dataproc Serverless batch task.
+
+![Airflow DAG run graph](screenshots/airflow-dag-run.png)
+
+### GCS customer data
+
+Customer CSV files are stored in the `customer_daily_data/` bucket folder and are read by the Snowflake external stage.
+
+![GCS customer data bucket](screenshots/gcs-customer-data-bucket.png)
+
+### Snowflake customer dimension
+
+Example query results for the Snowflake `customer_dim` table.
+
+![Snowflake customer dimension query results](screenshots/snowflake-customer-dimension.png)
 
 
 ## Setup
@@ -48,7 +79,7 @@ Optional repository variables: `COMPOSER_ENV`, `COMPOSER_REGION` (defaults are s
 
 ## Usage
 
-1. Add or edit DAGs in `airflow_dags/` or Spark job files in `spark_job/`.
+1. Add or edit DAGs in `airflow_dags/` or Spark job files in `spark_job/`. Place customer CSV inputs under the configured GCS `customer_daily_data/` prefix and rental JSON inputs under `car_rental_data/car_rental_daily_data/`, using the expected date-based filenames.
 2. Push changes in either folder to `main`.
 3. The **Deploy DAGs** workflow syncs DAGs to Composer and Spark job files to `gs://gcs_bucket_for_snf/car_rental_spark_job/`. Both syncs remove remote files that are not present in their corresponding repository folder.
 4. DAGs appear in the Airflow UI within a couple of minutes. Spark job files are available in GCS for Dataproc Serverless.
@@ -56,3 +87,5 @@ Optional repository variables: `COMPOSER_ENV`, `COMPOSER_REGION` (defaults are s
 The DAG submits Spark work as a Dataproc Serverless batch in `us-central1` (runtime `2.2`), rather than using a persistent Dataproc cluster. Ensure the batch's runtime service account can read the script, connector JARs, and input data from GCS and can reach Snowflake. The Snowflake Spark connector JAR must be compatible with the Serverless runtime's Spark version.
 
 To deploy manually: GitHub > Actions > Deploy DAGs > Run workflow.
+
+To run the DAG manually, trigger `car_rental_data_pipeline` in Airflow and optionally provide an `execution_date` in `yyyymmdd` format. Leave it as `NA` to use the Airflow logical date.
